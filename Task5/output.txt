@@ -1,0 +1,22 @@
+=== Normal Diffie-Hellman Key Exchange ===
+Alice's public key: 8
+Bob's public key: 19
+[Alice] computed shared secret: 2
+[Bob] computed shared secret: 2
+Alice and Bob have successfully established a shared secret.
+
+=== Man-in-the-Middle (MITM) Attack by Mallory ===
+Mallory intercepts keys from Alice and Bob...
+Mallory passes her public key 9 to Alice instead of Bob's.
+Mallory passes her public key 22 to Bob instead of Alice's.
+
+[Alice] computed shared secret: 3
+[Mallory_A] computed shared secret: 3
+[Bob] computed shared secret: 22
+[Mallory_B] computed shared secret: 22
+
+=== MITM Attack Results ===
+Mallory successfully established two separate shared secrets!
+Secret with Alice: 3 (Alice thinks this is shared with Bob)
+Secret with Bob: 22 (Bob thinks this is shared with Alice)
+Mallory can now intercept messages from Alice, decrypt them, read/modify them, and re-encrypt them for Bob.
