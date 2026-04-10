@@ -16,7 +16,7 @@ openssl rsautl -decrypt -inkey recipient_private_key.pem \
   -in encrypted_symmetric_key.bin -out decrypted_symmetric_key.bin
 echo "Recipient decrypted the symmetric key successfully."
 
-# Encrypting a message using the shared symmetric key (AES-256-CBC)
+# Encrypting the message using the shared symmetric key 
 echo "This is a confidential message protected by the shared key." > message.txt
 openssl enc -aes-256-cbc -kfile symmetric_key.bin \
   -in message.txt -out encrypted_message.bin -pbkdf2

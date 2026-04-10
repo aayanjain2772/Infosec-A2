@@ -2,9 +2,6 @@
 # Man-in-the-Middle attack simulation using Diffie-Hellman key exchange
 
 import random
-
-# Small DH parameters 
-# In real world these would be much larger
 p = 23   # prime modulus
 g = 5    # generator
 
@@ -41,8 +38,8 @@ if alice_secret == bob_secret:
 
 print("\n=== Man-in-the-Middle (MITM) Attack by Mallory ===")
 
-mallory_private_a = dh_private_key()   # Mallory's key for talk with Alice
-mallory_private_b = dh_private_key()   # Mallory's key for talk with Bob
+mallory_private_a = dh_private_key()   # Mallory's key to talk to Alice
+mallory_private_b = dh_private_key()   # Mallory's key to talk to Bob
 
 mallory_public_a = dh_public_key(mallory_private_a)
 mallory_public_b = dh_public_key(mallory_private_b)
