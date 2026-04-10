@@ -1,57 +1,73 @@
-# Diffie-Hellman Key Exchange Man-in-the-Middle (MITM) Attack Demonstration
 
-# Shared parameters (typically large primes, testing with smaller values)
-p = 23  # Prime modulus
-g = 5   # Generator
+# mitm_attack.py
+# Man-in-the-Middle attack simulation using Diffie-Hellman key exchange
+# Only uses Python standard library - no external packages needed
 
-class Entity:
-    def __init__(self, name, private_key):
-        self.name = name
-        self.private_key = private_key
-        self.public_key = (g ** private_key) % p
-        self.shared_secret = None
+import random
 
-    def compute_secret(self, other_public_key):
-        self.shared_secret = (other_public_key ** self.private_key) % p
-        print(f"[{self.name}] computed shared secret: {self.shared_secret}")
+# Small DH parameters (for simulation purposes only)
+# In real world these would be much larger
+p = 23   # prime modulus
+g = 5    # generator
 
-def main():
-    print("=== Normal Diffie-Hellman Key Exchange ===")
-    alice = Entity("Alice", 6)
-    bob = Entity("Bob", 15)
-    
-    print(f"Alice's public key: {alice.public_key}")
-    print(f"Bob's public key: {bob.public_key}")
-    
-    alice.compute_secret(bob.public_key)
-    bob.compute_secret(alice.public_key)
-    print("Alice and Bob have successfully established a shared secret.\n")
+def dh_private_key():
+    return random.randint(2, p - 2)
 
-    print("=== Man-in-the-Middle (MITM) Attack by Mallory ===")
-    alice = Entity("Alice", 6)
-    bob = Entity("Bob", 15)
-    
-    # Mallory sets up two separate key exchanges
-    mallory_to_alice = Entity("Mallory_A", 10)
-    mallory_to_bob = Entity("Mallory_B", 11)
+def dh_public_key(private):
+    return pow(g, private, p)
 
-    print("Mallory intercepts keys from Alice and Bob...")
-    print(f"Mallory passes her public key {mallory_to_alice.public_key} to Alice instead of Bob's.")
-    print(f"Mallory passes her public key {mallory_to_bob.public_key} to Bob instead of Alice's.\n")
+def dh_shared_secret(their_public, my_private):
+    return pow(their_public, my_private, p)
 
-    # Alice thinks she is communicating with Bob, but computes secret with Mallory
-    alice.compute_secret(mallory_to_alice.public_key)
-    mallory_to_alice.compute_secret(alice.public_key)
 
-    # Bob thinks he is communicating with Alice, but computes secret with Mallory
-    bob.compute_secret(mallory_to_bob.public_key)
-    mallory_to_bob.compute_secret(bob.public_key)
+print("=== Normal Diffie-Hellman Key Exchange ===")
 
-    print("\n=== MITM Attack Results ===")
-    print("Mallory successfully established two separate shared secrets!")
-    print(f"Secret with Alice: {mallory_to_alice.shared_secret} (Alice thinks this is shared with Bob)")
-    print(f"Secret with Bob: {mallory_to_bob.shared_secret} (Bob thinks this is shared with Alice)")
-    print("Mallory can now intercept messages from Alice, decrypt them, read/modify them, and re-encrypt them for Bob.")
+alice_private = dh_private_key()
+bob_private   = dh_private_key()
 
-if __name__ == "__main__":
-    main()
+alice_public = dh_public_key(alice_private)
+bob_public   = dh_public_key(bob_private)
+
+print(f"Alice's public key: {alice_public}")
+print(f"Bob's public key: {bob_public}")
+
+alice_secret = dh_shared_secret(bob_public, alice_private)
+bob_secret   = dh_shared_secret(alice_public, bob_private)
+
+print(f"[Alice] computed shared secret: {alice_secret}")
+print(f"[Bob] computed shared secret: {bob_secret}")
+
+if alice_secret == bob_secret:
+    print("Alice and Bob have successfully established a shared secret.")
+
+
+print("\n=== Man-in-the-Middle (MITM) Attack by Mallory ===")
+
+mallory_private_a = dh_private_key()   # Mallory's key for talk with Alice
+mallory_private_b = dh_private_key()   # Mallory's key for talk with Bob
+
+mallory_public_a = dh_public_key(mallory_private_a)
+mallory_public_b = dh_public_key(mallory_private_b)
+
+print("Mallory intercepts keys from Alice and Bob...")
+print(f"Mallory passes her public key {mallory_public_a} to Alice instead of Bob's.")
+print(f"Mallory passes her public key {mallory_public_b} to Bob instead of Alice's.")
+
+# Alice thinks she is computing secret with Bob but actually with Mallory
+alice_secret_mitm    = dh_shared_secret(mallory_public_a, alice_private)
+mallory_secret_alice = dh_shared_secret(alice_public, mallory_private_a)
+
+# Bob thinks he is computing secret with Alice but actually with Mallory
+bob_secret_mitm      = dh_shared_secret(mallory_public_b, bob_private)
+mallory_secret_bob   = dh_shared_secret(bob_public, mallory_private_b)
+
+print(f"\n[Alice] computed shared secret: {alice_secret_mitm}")
+print(f"[Mallory_A] computed shared secret: {mallory_secret_alice}")
+print(f"[Bob] computed shared secret: {bob_secret_mitm}")
+print(f"[Mallory_B] computed shared secret: {mallory_secret_bob}")
+
+print("\n=== MITM Attack Results ===")
+print("Mallory successfully established two separate shared secrets!")
+print(f"Secret with Alice: {alice_secret_mitm} (Alice thinks this is shared with Bob)")
+print(f"Secret with Bob: {bob_secret_mitm} (Bob thinks this is shared with Alice)")
+print("Mallory can now intercept messages from Alice, decrypt them, read/modify them, and re-encrypt them for Bob.")

@@ -1,11 +1,11 @@
 === Needham-Schroeder Normal Execution ===
-[KDC] Received request from Alice to establish session with Bob. Nonce: 34669
-[KDC] Distributing session key 'SESSION_KEY_5739' and secure ticket.
-[Alice] Verified KDC response. Extracted Session Key: SESSION_KEY_5739
+[KDC] Received request from Alice to establish session with Bob. Nonce: 67298
+[KDC] Distributing session key 'SESSION_KEY_8651' and secure ticket.
+[Alice] Verified KDC response. Extracted Session Key: SESSION_KEY_8651
 [Alice] Forwarding ticket to Bob...
-[Bob] Validated ticket for Alice. Extracted Session Key: SESSION_KEY_5739
+[Bob] Validated ticket for Alice. Extracted Session Key: SESSION_KEY_8651
 [Bob] Sending numeric challenge to Alice...
-[Alice] Responding to challenge (85202 - 1)...
+[Alice] Responding to challenge (41746 - 1)...
 [Bob] Mutual authentication successfully established!
 
 
@@ -14,10 +14,10 @@
 === Denning-Sacco Attack Execution ===
 Mallory has compromised an old session key and its corresponding valid ticket to Bob.
 [Mallory] Replaying intercepted ticket to Bob...
-[Bob] Successfully decrypted the ticket. Extracted Session Key: SESSION_KEY_5739 from Alice
+[Bob] Successfully decrypted the ticket. Extracted Session Key: SESSION_KEY_8651 from Alice
 [Bob] (Bob has no timestamp to check if this ticket is old or recently generated!)
 [Bob] Sending numeric challenge to Alice (intercepted by Mallory)...
-[Mallory] Validly responding to challenge (80298 - 1)...
+[Mallory] Validly responding to challenge (72799 - 1)...
 [Bob] Authentication successful. Bob now incorrectly trusts Mallory as Alice!
 
 === Explanation & Mitigation ===

@@ -1,166 +1,135 @@
-import json
-import base64
+
+# needham_schroeder.py
+# Needham-Schroeder Shared-Key Protocol simulation and Denning-Sacco attack
+# Only uses Python standard library - no external packages needed
+
 import random
+import hashlib
 
-# A simple simulated encryption mechanism using Base64
-# It prefixes the plaintext with the key to simulate a "locked" message.
-# In a real environment, AES or another strong symmetric cipher would be used.
-def simulate_encrypt(key, plaintext):
-    combined = f"{key}::{plaintext}"
-    encoded_bytes = base64.b64encode(combined.encode('utf-8'))
-    return encoded_bytes.decode('utf-8')
+# ─── Simple symmetric cipher using XOR + shared key (textbook demo) ──────────
 
-def simulate_decrypt(key, ciphertext):
-    try:
-        decoded_bytes = base64.b64decode(ciphertext.encode('utf-8'))
-        combined = decoded_bytes.decode('utf-8')
-        if combined.startswith(f"{key}::"):
-            return combined[len(f"{key}::"):]
-        else:
-            return None # Decryption failed / wrong key
-    except Exception:
-        return None
+def simple_encrypt(plaintext: str, key: str) -> str:
+    """XOR-based encryption using a key, output as hex string."""
+    key_bytes = key.encode()
+    result = []
+    for i, ch in enumerate(plaintext.encode()):
+        result.append(ch ^ key_bytes[i % len(key_bytes)])
+    return bytes(result).hex()
 
-class KeyDistributionCenter:
-    def __init__(self):
-        # KDC shares symmetric keys with Alice and Bob
-        self.keys = {"Alice": "MASTER_KEY_ALICE", "Bob": "MASTER_KEY_BOB"}
+def simple_decrypt(hex_ciphertext: str, key: str) -> str:
+    """Reverse the XOR-based encryption."""
+    key_bytes = key.encode()
+    raw = bytes.fromhex(hex_ciphertext)
+    result = []
+    for i, byte in enumerate(raw):
+        result.append(byte ^ key_bytes[i % len(key_bytes)])
+    return bytes(result).decode()
 
-    def request_session(self, initiator, target, nonce1):
-        print(f"[KDC] Received request from {initiator} to establish session with {target}. Nonce: {nonce1}")
-        
-        # Generate a new session key
-        session_key = f"SESSION_KEY_{random.randint(1000, 9999)}"
-        
-        # 1. Create a ticket for the target (Bob), encrypted with Bob's master key
-        ticket_payload = json.dumps({"session_key": session_key, "initiator": initiator})
-        encrypted_ticket = simulate_encrypt(self.keys[target], ticket_payload)
-        
-        # 2. Create the response for the initiator (Alice), encrypted with Alice's master key
-        response_payload = json.dumps({
-            "nonce1": nonce1,
-            "target": target,
-            "session_key": session_key,
-            "ticket_to_target": encrypted_ticket
-        })
-        encrypted_response = simulate_encrypt(self.keys[initiator], response_payload)
-        
-        print(f"[KDC] Distributing session key '{session_key}' and secure ticket.")
-        return encrypted_response
+def generate_nonce() -> int:
+    return random.randint(10000, 99999)
 
-class Node:
-    def __init__(self, name, master_key):
-        self.name = name
-        self.master_key = master_key
+def generate_session_key() -> str:
+    rand = random.randint(1000, 9999)
+    return f"SESSION_KEY_{rand}"
 
-    def send_challenge(self, session_key):
-        nonce = random.randint(10000, 99999)
-        challenge_msg = simulate_encrypt(session_key, str(nonce))
-        return nonce, challenge_msg
 
-def normal_protocol():
-    print("=== Needham-Schroeder Normal Execution ===")
-    kdc = KeyDistributionCenter()
-    alice = Node("Alice", "MASTER_KEY_ALICE")
-    bob = Node("Bob", "MASTER_KEY_BOB")
-    
-    # Step 1: Alice requests a session
-    nonce1 = random.randint(10000, 99999)
-    encrypted_response_from_kdc = kdc.request_session(alice.name, bob.name, nonce1)
-    
-    # Step 2: Alice decrypts response from KDC
-    decrypted_str = simulate_decrypt(alice.master_key, encrypted_response_from_kdc)
-    if not decrypted_str:
-        print("[Alice] Failed to decrypt KDC response.")
-        return None, None
+# ─── Shared long-term keys between KDC and each party ────────────────────────
+KEY_ALICE_KDC = "ALICE_MASTER_SECRET"
+KEY_BOB_KDC   = "BOB_MASTER_SECRET"
 
-    kdc_data = json.loads(decrypted_str)
-    
-    # Verification
-    if kdc_data['nonce1'] != nonce1:
-        print("[Alice] Nonce 1 mismatch! Potential replay attack detected.")
-        return None, None
-        
-    session_key = kdc_data['session_key']
-    ticket_to_bob = kdc_data['ticket_to_target']
-    print(f"[Alice] Verified KDC response. Extracted Session Key: {session_key}")
-    
-    # Step 3: Alice sends the ticket to Bob
-    print(f"[Alice] Forwarding ticket to Bob...")
-    bob_decrypted_str = simulate_decrypt(bob.master_key, ticket_to_bob)
-    if not bob_decrypted_str:
-        print("[Bob] Failed to decrypt incoming ticket.")
-        return None, None
-        
-    bob_data = json.loads(bob_decrypted_str)
-    bob_session_key = bob_data['session_key']
-    initiator_name = bob_data['initiator']
-    print(f"[Bob] Validated ticket for {initiator_name}. Extracted Session Key: {bob_session_key}")
-    
-    # Step 4: Bob sends a challenge to Alice to prove she holds the session key
-    nonce2, challenge_msg = bob.send_challenge(bob_session_key)
-    print(f"[Bob] Sending numeric challenge to Alice...")
-    
-    # Step 5: Alice solves the challenge (Nonce - 1) and responds
-    decrypted_challenge_str = simulate_decrypt(session_key, challenge_msg)
-    received_nonce2 = int(decrypted_challenge_str)
-    
-    response_msg = simulate_encrypt(session_key, str(received_nonce2 - 1))
-    print(f"[Alice] Responding to challenge ({received_nonce2} - 1)...")
-    
-    # Bob verifies the response
-    decrypted_response_str = simulate_decrypt(bob_session_key, response_msg)
-    if int(decrypted_response_str) == nonce2 - 1:
-        print("[Bob] Mutual authentication successfully established!\n")
-        return session_key, ticket_to_bob
-    else:
-        print("[Bob] Mutual authentication failed.")
-        return None, None
 
-def denning_sacco_attack(stale_session_key, intercepted_ticket):
-    print("=== Denning-Sacco Attack Execution ===")
-    print("Mallory has compromised an old session key and its corresponding valid ticket to Bob.")
-    
-    bob = Node("Bob", "MASTER_KEY_BOB")
-    
-    print(f"[Mallory] Replaying intercepted ticket to Bob...")
-    bob_decrypted_str = simulate_decrypt(bob.master_key, intercepted_ticket)
-    
-    if bob_decrypted_str:
-        bob_data = json.loads(bob_decrypted_str)
-        bob_session_key = bob_data['session_key']
-        print(f"[Bob] Successfully decrypted the ticket. Extracted Session Key: {bob_session_key} from {bob_data['initiator']}")
-        print(f"[Bob] (Bob has no timestamp to check if this ticket is old or recently generated!)")
-        
-        # Bob challenges the initiator (Mallory in this case)
-        nonce_bob, challenge_msg = bob.send_challenge(bob_session_key)
-        print(f"[Bob] Sending numeric challenge to Alice (intercepted by Mallory)...")
-        
-        # Mallory responds pretending to be Alice because she owns the compromised session key
-        decrypted_challenge_str = simulate_decrypt(stale_session_key, challenge_msg)
-        received_nonce = int(decrypted_challenge_str)
-        
-        response_msg = simulate_encrypt(stale_session_key, str(received_nonce - 1))
-        print(f"[Mallory] Validly responding to challenge ({received_nonce} - 1)...")
-        
-        # Bob validates
-        decrypted_response_str = simulate_decrypt(bob_session_key, response_msg)
-        if int(decrypted_response_str) == nonce_bob - 1:
-            print("[Bob] Authentication successful. Bob now incorrectly trusts Mallory as Alice!")
+# ─── Normal Protocol Run ──────────────────────────────────────────────────────
+print("=== Needham-Schroeder Normal Execution ===")
 
-def main():
-    session_key, ticket = normal_protocol()
-    
-    if session_key and ticket:
-        print("\n--- Time passes. The session key expires but Mallory steals it along with the ticket ---\n")
-        denning_sacco_attack(session_key, ticket)
-        
-        print("\n=== Explanation & Mitigation ===")
-        print("The Needham-Schroeder Shared-Key Protocol does not include a timestamp inside the ticket.")
-        print("Consequently, if a session key is compromised years later, an attacker like Mallory can replay")
-        print("the legacy ticket back to Bob. Since it authentically decodes using his master key, Bob will")
-        print("mistakenly trust it. The Denning-Sacco protocol mitigates this by mandating timestamps within")
-        print("the ticket, empowering Bob to instantly discard replays that fall outside a viable time window.")
+# Step 1: Alice sends request to KDC
+nonce_a = generate_nonce()
+print(f"[KDC] Received request from Alice to establish session with Bob. Nonce: {nonce_a}")
 
-if __name__ == '__main__':
-    main()
+# Step 2: KDC generates session key and creates tickets
+session_key = generate_session_key()
+print(f"[KDC] Distributing session key '{session_key}' and secure ticket.")
+
+# KDC sends to Alice: {session_key, nonce_a, ticket_for_bob} encrypted with Alice's master key
+# ticket_for_bob = {session_key, "Alice"} encrypted with Bob's master key
+ticket_for_bob   = simple_encrypt(f"{session_key}|Alice", KEY_BOB_KDC)
+kdc_to_alice     = simple_encrypt(f"{session_key}|{nonce_a}|{ticket_for_bob}", KEY_ALICE_KDC)
+
+# Step 3: Alice decrypts KDC response
+alice_decrypted  = simple_decrypt(kdc_to_alice, KEY_ALICE_KDC)
+parts            = alice_decrypted.split("|", 2)
+alice_session    = parts[0]
+alice_nonce      = parts[1]
+alice_ticket     = parts[2]
+
+# Verify nonce matches
+assert alice_nonce == str(nonce_a), "Nonce mismatch - possible replay!"
+print(f"[Alice] Verified KDC response. Extracted Session Key: {alice_session}")
+print("[Alice] Forwarding ticket to Bob...")
+
+# Step 4: Bob decrypts the ticket using his master key
+bob_ticket_plain = simple_decrypt(alice_ticket, KEY_BOB_KDC)
+bob_parts        = bob_ticket_plain.split("|")
+bob_session      = bob_parts[0]
+bob_identity     = bob_parts[1]
+
+print(f"[Bob] Validated ticket for {bob_identity}. Extracted Session Key: {bob_session}")
+
+# Step 5: Bob sends a nonce challenge to Alice (encrypted with session key)
+nonce_b = generate_nonce()
+print("[Bob] Sending numeric challenge to Alice...")
+challenge = simple_encrypt(str(nonce_b), bob_session)
+
+# Step 6: Alice responds with nonce_b - 1 to prove she holds the session key
+c_plain   = simple_decrypt(challenge, alice_session)
+response  = simple_encrypt(str(int(c_plain) - 1), alice_session)
+print(f"[Alice] Responding to challenge ({c_plain} - 1)...")
+
+# Step 7: Bob verifies Alice's response
+r_plain = simple_decrypt(response, bob_session)
+assert int(r_plain) == nonce_b - 1, "Authentication failed!"
+print("[Bob] Mutual authentication successfully established!")
+
+
+# ─── Denning-Sacco Attack ─────────────────────────────────────────────────────
+print("\n\n--- Time passes. The session key expires but Mallory steals it along with the ticket ---\n")
+
+# Mallory has obtained (by eavesdropping or disk theft) the old session_key
+# and the ticket that was forwarded from Alice to Bob.
+compromised_session_key = session_key
+compromised_ticket      = alice_ticket
+
+print("=== Denning-Sacco Attack Execution ===")
+print("Mallory has compromised an old session key and its corresponding valid ticket to Bob.")
+print("[Mallory] Replaying intercepted ticket to Bob...")
+
+# Mallory replays the old ticket to Bob - Bob has no way to detect it is stale
+mallory_ticket_plain = simple_decrypt(compromised_ticket, KEY_BOB_KDC)
+mallory_parts        = mallory_ticket_plain.split("|")
+mallory_session      = mallory_parts[0]
+mallory_identity     = mallory_parts[1]
+
+print(f"[Bob] Successfully decrypted the ticket. Extracted Session Key: {mallory_session} from {mallory_identity}")
+print("[Bob] (Bob has no timestamp to check if this ticket is old or recently generated!)")
+
+# Bob issues a fresh challenge, Mallory can answer it using the stolen session key
+nonce_attack = generate_nonce()
+print("[Bob] Sending numeric challenge to Alice (intercepted by Mallory)...")
+challenge_attack = simple_encrypt(str(nonce_attack), mallory_session)
+
+# Mallory answers because she has the session key
+print(f"[Mallory] Validly responding to challenge ({nonce_attack} - 1)...")
+mallory_response = simple_encrypt(str(nonce_attack - 1), compromised_session_key)
+
+# Bob verifies - it passes because Mallory used the correct session key
+verify = simple_decrypt(mallory_response, bob_session)
+assert int(verify) == nonce_attack - 1
+print("[Bob] Authentication successful. Bob now incorrectly trusts Mallory as Alice!")
+
+
+# ─── Explanation & Mitigation ─────────────────────────────────────────────────
+print("\n=== Explanation & Mitigation ===")
+print("The Needham-Schroeder Shared-Key Protocol does not include a timestamp inside the ticket.")
+print("Consequently, if a session key is compromised years later, an attacker like Mallory can replay")
+print("the legacy ticket back to Bob. Since it authentically decodes using his master key, Bob will")
+print("mistakenly trust it. The Denning-Sacco protocol mitigates this by mandating timestamps within")
+print("the ticket, empowering Bob to instantly discard replays that fall outside a viable time window.")
