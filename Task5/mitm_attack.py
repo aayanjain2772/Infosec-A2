@@ -1,11 +1,9 @@
-
 # mitm_attack.py
 # Man-in-the-Middle attack simulation using Diffie-Hellman key exchange
-# Only uses Python standard library - no external packages needed
 
 import random
 
-# Small DH parameters (for simulation purposes only)
+# Small DH parameters 
 # In real world these would be much larger
 p = 23   # prime modulus
 g = 5    # generator

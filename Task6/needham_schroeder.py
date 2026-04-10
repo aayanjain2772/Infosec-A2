@@ -1,12 +1,7 @@
-
-# needham_schroeder.py
-# Needham-Schroeder Shared-Key Protocol simulation and Denning-Sacco attack
-# Only uses Python standard library - no external packages needed
-
 import random
 import hashlib
 
-# ─── Simple symmetric cipher using XOR + shared key (textbook demo) ──────────
+# Simple symmetric cipher using XOR + shared key 
 
 def simple_encrypt(plaintext: str, key: str) -> str:
     """XOR-based encryption using a key, output as hex string."""
@@ -33,12 +28,12 @@ def generate_session_key() -> str:
     return f"SESSION_KEY_{rand}"
 
 
-# ─── Shared long-term keys between KDC and each party ────────────────────────
+# Shared long-term keys between KDC and each party 
 KEY_ALICE_KDC = "ALICE_MASTER_SECRET"
 KEY_BOB_KDC   = "BOB_MASTER_SECRET"
 
 
-# ─── Normal Protocol Run ──────────────────────────────────────────────────────
+# Normal Protocol Run 
 print("=== Needham-Schroeder Normal Execution ===")
 
 # Step 1: Alice sends request to KDC
@@ -90,7 +85,7 @@ assert int(r_plain) == nonce_b - 1, "Authentication failed!"
 print("[Bob] Mutual authentication successfully established!")
 
 
-# ─── Denning-Sacco Attack ─────────────────────────────────────────────────────
+# Denning-Sacco Attack 
 print("\n\n--- Time passes. The session key expires but Mallory steals it along with the ticket ---\n")
 
 # Mallory has obtained (by eavesdropping or disk theft) the old session_key
@@ -126,7 +121,7 @@ assert int(verify) == nonce_attack - 1
 print("[Bob] Authentication successful. Bob now incorrectly trusts Mallory as Alice!")
 
 
-# ─── Explanation & Mitigation ─────────────────────────────────────────────────
+# Explanation & Mitigation 
 print("\n=== Explanation & Mitigation ===")
 print("The Needham-Schroeder Shared-Key Protocol does not include a timestamp inside the ticket.")
 print("Consequently, if a session key is compromised years later, an attacker like Mallory can replay")
